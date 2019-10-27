@@ -44,6 +44,7 @@ public class AsyncRingtonePlayer {
     private static final int EVENT_PLAY = 1;
     private static final int EVENT_STOP = 2;
     private static final int EVENT_REPEAT = 3;
+    private static final int EVENT_INCREASE_VOLUME = 4;
 
     // The interval in which to restart the ringer.
     private static final int RESTART_RINGER_MILLIS = 3000;
@@ -53,6 +54,8 @@ public class AsyncRingtonePlayer {
 
     /** The current ringtone. Only used by the ringtone thread. */
     private Ringtone mRingtone;
+    private float mIncrementAmount;
+    private float mCurrentIncrementVolume;
 
     /**
      * CompletableFuture which signals a caller when we know whether a ringtone will play haptics
@@ -98,7 +101,7 @@ public class AsyncRingtonePlayer {
      *         in this case the default vibration in {@link Ringer} should be trigger if needed.
      */
     public @NonNull CompletableFuture<Boolean> play(RingtoneFactory factory, Call incomingCall,
-            @Nullable VolumeShaper.Configuration volumeShaperConfig, boolean isVibrationEnabled) {
+            @Nullable VolumeShaper.Configuration volumeShaperConfig, boolean isVibrationEnabled, float incStartVolume, int incRampUpTime) {
         Log.d(this, "Posting play.");
         if (mHapticsFuture == null) {
             mHapticsFuture = new CompletableFuture<>();
@@ -109,6 +112,8 @@ public class AsyncRingtonePlayer {
         args.arg3 = volumeShaperConfig;
         args.arg4 = isVibrationEnabled;
         args.arg5 = Log.createSubsession();
+        args.argi1 = Math.round(incStartVolume * 100F);
+        args.argi2 = incRampUpTime;
         postMessage(EVENT_PLAY, true /* shouldCreateHandler */, args);
         return mHapticsFuture;
     }
@@ -162,6 +167,15 @@ public class AsyncRingtonePlayer {
                     case EVENT_STOP:
                         handleStop();
                         break;
+                    case EVENT_INCREASE_VOLUME:
+                        mCurrentIncrementVolume += mIncrementAmount;
+                        Log.d(AsyncRingtonePlayer.this, "Increasing ringtone volume to "
+                                + Math.round(mCurrentIncrementVolume * 100F) + "%");
+                        mRingtone.setVolume(mCurrentIncrementVolume);
+                        if (mCurrentIncrementVolume < 1F) {
+                            sendEmptyMessageDelayed(EVENT_INCREASE_VOLUME, 1000);
+                        }
+                        break;
                 }
             }
         };
@@ -176,6 +190,8 @@ public class AsyncRingtonePlayer {
         VolumeShaper.Configuration volumeShaperConfig = (VolumeShaper.Configuration) args.arg3;
         boolean isVibrationEnabled = (boolean) args.arg4;
         Session session = (Session) args.arg5;
+        float incStartVolume = (float) args.argi1 / 100F;
+        int incRampUpTime = args.argi2;
         args.recycle();
 
         Log.continueSession(session, "ARP.hP");
@@ -241,6 +257,18 @@ public class AsyncRingtonePlayer {
                 }
             }
 
+            if (incRampUpTime > 0) {
+                Log.d(this, "Starting ringtone volume at " + Math.round(incStartVolume * 100F) + "%");
+                mRingtone.setVolume(incStartVolume);
+    
+                mIncrementAmount = (1F - incStartVolume) / (float) incRampUpTime;
+                mCurrentIncrementVolume = incStartVolume;
+    
+                mHandler.sendEmptyMessageDelayed(EVENT_INCREASE_VOLUME, 1000);
+            } else {
+                mRingtone.setVolume(1F);
+            }
+
             if (mShouldPauseBetweenRepeat) {
                 // We're trying to pause between repeats, so the ringtone will not intentionally loop.
                 // Instead, we'll use a handler message to perform repeats.
@@ -295,6 +323,7 @@ public class AsyncRingtonePlayer {
             // At the time that STOP is handled, there should be no need for repeat messages in the
             // queue.
             mHandler.removeMessages(EVENT_REPEAT);
+            mHandler.removeMessages(EVENT_INCREASE_VOLUME);
 
             if (mHandler.hasMessages(EVENT_PLAY)) {
                 Log.v(this, "Keeping alive ringtone thread for subsequent play request.");

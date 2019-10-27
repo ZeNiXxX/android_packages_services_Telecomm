@@ -35,6 +35,8 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.content.ContentResolver;
+import android.provider.Settings;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -281,6 +283,19 @@ public class Ringer {
         if (isRingerAudible) {
             mRingingCall = foregroundCall;
             Log.addEvent(foregroundCall, LogUtils.Events.START_RINGER);
+
+            float startVolume = 0;
+            int rampUpTime = 0;
+
+            final ContentResolver cr = mContext.getContentResolver();
+            if (Settings.System.getInt(cr,
+                    Settings.System.INCREASING_RING, 0) != 0) {
+                startVolume = Settings.System.getFloat(cr,
+                        Settings.System.INCREASING_RING_START_VOLUME, 0.1f);
+                rampUpTime = Settings.System.getInt(cr,
+                        Settings.System.INCREASING_RING_RAMP_UP_TIME, 20);
+            }
+
             // Because we wait until a contact info query to complete before processing a
             // call (for the purposes of direct-to-voicemail), the information about custom
             // ringtones should be available by the time this code executes. We can safely
@@ -321,11 +336,11 @@ public class Ringer {
                         .build();
                 }
                 hapticsFuture = mRingtonePlayer.play(mRingtoneFactory, foregroundCall,
-                        mVolumeShaperConfig, isVibratorEnabled);
+                        mVolumeShaperConfig, isVibratorEnabled,startVolume, rampUpTime);
             } else {
                 // Ramping ringtone is not enabled.
                 hapticsFuture = mRingtonePlayer.play(mRingtoneFactory, foregroundCall, null,
-                        isVibratorEnabled);
+                        isVibratorEnabled, startVolume, rampUpTime);
                 effect = getVibrationEffectForCall(mRingtoneFactory, foregroundCall);
             }
         } else {
