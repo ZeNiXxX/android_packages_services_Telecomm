@@ -449,7 +449,7 @@ public class Ringer {
 
         if (Settings.System.getIntForUser(mContext.getContentResolver(),
                 Settings.System.VIBRATE_ON_CALLWAITING, 0, UserHandle.USER_CURRENT) == 1) {
-            vibrate(200, 300, 500);
+            doHapticFeedback(VibrationEffect.EFFECT_CLICK);
         }
 
         mFlashOnCallWait = Settings.System.getIntForUser(mContext.getContentResolver(),
@@ -568,11 +568,12 @@ public class Ringer {
                 && mSystemSettingsUtil.enableRampingRingerFromDeviceConfig());
     }
 
-    public void vibrate(int v1, int p1, int v2) {
-        long[] pattern = new long[] {
-            0, v1, p1, v2
-        };
-        ((Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE)).vibrate(pattern, -1);
+    private void doHapticFeedback(int effect) {
+        if (mVibrator != null) {
+            if (mVibrator.hasVibrator()) {
+                mVibrator.vibrate(VibrationEffect.get(effect));
+            }
+        }
     }
 
     private class TorchToggler extends AsyncTask {

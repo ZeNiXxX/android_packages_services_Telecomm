@@ -32,6 +32,7 @@ import android.os.Looper;
 import android.os.RemoteException;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
 import android.telecom.CallAudioState;
@@ -735,6 +736,7 @@ public class InCallController extends CallsManagerListenerBase {
     private final Timeouts.Adapter mTimeoutsAdapter;
     private final DefaultDialerCache mDefaultDialerCache;
     private final EmergencyCallHelper mEmergencyCallHelper;
+    private final Vibrator mVibrator;
     private CarSwappingInCallServiceConnection mInCallServiceConnection;
     private NonUIInCallServiceConnectionCollection mNonUIInCallServiceConnections;
 
@@ -760,6 +762,8 @@ public class InCallController extends CallsManagerListenerBase {
                 resources.getString(R.string.incall_default_class));
 
         mSystemStateHelper.addListener(mSystemStateListener);
+
+        mVibrator = mContext.getSystemService(Vibrator.class);
     }
 
     @Override
@@ -919,10 +923,10 @@ public class InCallController extends CallsManagerListenerBase {
             Settings.System.VIBRATE_ON_DISCONNECT, 0, UserHandle.USER_CURRENT) == 1; 
 
         if (oldState == CallState.DIALING && newState == CallState.ACTIVE && vibrateOnConnect) {
-            vibrate(100, 200, 0);
+            doHapticFeedback(VibrationEffect.EFFECT_CLICK);
         } else if (oldState == CallState.ACTIVE && newState == CallState.DISCONNECTED
                 && vibrateOnDisconnect) {
-            vibrate(50, 100, 50);
+            doHapticFeedback(VibrationEffect.EFFECT_DOUBLE_CLICK);
         }
         updateCall(call);
     }
@@ -1613,10 +1617,11 @@ public class InCallController extends CallsManagerListenerBase {
         return childCalls;
     }
 
-    public void vibrate(int v1, int p1, int v2) {
-        long[] pattern = new long[] {
-            0, v1, p1, v2
-        };
-        ((Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE)).vibrate(pattern, -1);
+    private void doHapticFeedback(int effect) {
+        if (mVibrator != null) {
+            if (mVibrator.hasVibrator()) {
+                mVibrator.vibrate(VibrationEffect.get(effect));
+            }
+        }
     }
 }
