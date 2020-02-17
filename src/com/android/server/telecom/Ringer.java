@@ -32,9 +32,7 @@ import android.media.Ringtone;
 import android.media.VolumeShaper;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.UserHandle;
 import android.os.Vibrator;
-import android.provider.Settings;
 import android.content.ContentResolver;
 import android.provider.Settings;
 
@@ -462,11 +460,6 @@ public class Ringer {
 
         stopRinging();
 
-        if (Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.VIBRATE_ON_CALLWAITING, 0, UserHandle.USER_CURRENT) == 1) {
-            doHapticFeedback(VibrationEffect.EFFECT_CLICK);
-        }
-
         mFlashOnCallWait = Settings.System.getIntForUser(mContext.getContentResolver(),
                 Settings.System.FLASHLIGHT_ON_CALL_WAITING, 0, UserHandle.USER_CURRENT) == 1;
 
@@ -581,14 +574,6 @@ public class Ringer {
         return mSystemSettingsUtil.canVibrateWhenRinging(context)
             || (mSystemSettingsUtil.applyRampingRinger(context)
                 && mSystemSettingsUtil.enableRampingRingerFromDeviceConfig());
-    }
-
-    private void doHapticFeedback(int effect) {
-        if (mVibrator != null) {
-            if (mVibrator.hasVibrator()) {
-                mVibrator.vibrate(VibrationEffect.get(effect));
-            }
-        }
     }
 
     private class TorchToggler extends AsyncTask {

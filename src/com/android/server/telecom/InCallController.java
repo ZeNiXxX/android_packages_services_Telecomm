@@ -32,13 +32,8 @@ import android.os.Looper;
 import android.os.RemoteException;
 import android.os.Trace;
 import android.os.UserHandle;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
-import android.provider.Settings;
 import android.telecom.CallAudioState;
 import android.telecom.ConnectionService;
-import android.telecom.DefaultDialerManager;
-import android.telecom.DisconnectCause;
 import android.telecom.InCallService;
 import android.telecom.Log;
 import android.telecom.Logging.Runnable;
@@ -736,7 +731,6 @@ public class InCallController extends CallsManagerListenerBase {
     private final Timeouts.Adapter mTimeoutsAdapter;
     private final DefaultDialerCache mDefaultDialerCache;
     private final EmergencyCallHelper mEmergencyCallHelper;
-    private final Vibrator mVibrator;
     private CarSwappingInCallServiceConnection mInCallServiceConnection;
     private NonUIInCallServiceConnectionCollection mNonUIInCallServiceConnections;
 
@@ -762,8 +756,6 @@ public class InCallController extends CallsManagerListenerBase {
                 resources.getString(R.string.incall_default_class));
 
         mSystemStateHelper.addListener(mSystemStateListener);
-
-        mVibrator = mContext.getSystemService(Vibrator.class);
     }
 
     @Override
@@ -917,17 +909,6 @@ public class InCallController extends CallsManagerListenerBase {
 
     @Override
     public void onCallStateChanged(Call call, int oldState, int newState) {
-        boolean vibrateOnConnect = Settings.System.getIntForUser(mContext.getContentResolver(),
-            Settings.System.VIBRATE_ON_CONNECT, 0, UserHandle.USER_CURRENT) == 1;
-        boolean vibrateOnDisconnect = Settings.System.getIntForUser(mContext.getContentResolver(),
-            Settings.System.VIBRATE_ON_DISCONNECT, 0, UserHandle.USER_CURRENT) == 1; 
-
-        if (oldState == CallState.DIALING && newState == CallState.ACTIVE && vibrateOnConnect) {
-            doHapticFeedback(VibrationEffect.EFFECT_CLICK);
-        } else if (oldState == CallState.ACTIVE && newState == CallState.DISCONNECTED
-                && vibrateOnDisconnect) {
-            doHapticFeedback(VibrationEffect.EFFECT_DOUBLE_CLICK);
-        }
         updateCall(call);
     }
 
@@ -1615,13 +1596,5 @@ public class InCallController extends CallsManagerListenerBase {
         }
         childCalls.addAll(parentCalls);
         return childCalls;
-    }
-
-    private void doHapticFeedback(int effect) {
-        if (mVibrator != null) {
-            if (mVibrator.hasVibrator()) {
-                mVibrator.vibrate(VibrationEffect.get(effect));
-            }
-        }
     }
 }
